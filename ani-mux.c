@@ -26,12 +26,13 @@
 #include <linux/gpio/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/property.h>
+#include <linux/mod_devicetable.h>
 
 struct ani_mux {
-	struct gpio_descs *gpiod;
+	struct gpio_desc *gpiod;
 	struct iio_channel *parent;
 	int last_channel;
-	unsigned long delay_us;
+	u32 delay_us;
 };
 
 static int iio_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec const *chan, int *val, int *val2, long info)
@@ -41,10 +42,10 @@ static int iio_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
 		/* mux */
-		if (last_channel != chan->channel) {
+		if (priv->last_channel != chan->channel) {
 			gpiod_set_value_cansleep(priv->gpiod, chan->channel);
 			fsleep(priv->delay_us);
-			last_channel = chan->channel;
+			priv->last_channel = chan->channel;
 		}
 		return iio_read_channel_raw(priv->parent, val);
 	case IIO_CHAN_INFO_SCALE:
@@ -95,7 +96,7 @@ static int ani_mux_probe(struct platform_device *pdev)
 
 	/* Set if provided */
 	device_property_read_u32(dev, "settle-time-us", &priv->delay_us);
-	dev_dbg(dev, "settle-time-us: %lu\n", priv->delay_us);
+	dev_dbg(dev, "settle-time-us: %u\n", priv->delay_us);
 
 	indio_dev = devm_iio_device_alloc(dev, 0);
 	if (!indio_dev)
@@ -117,7 +118,7 @@ static int ani_mux_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id of_ani_mux_match[] = {
-	{ .compatible = "drs,ani-mux", },
+	{ .compatible = "drs,ani-mux" },
 	{ /* sentinel */ }
 };
 
