@@ -37,7 +37,7 @@ struct ani_mux {
 
 static int iio_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec const *chan, int *val, int *val2, long info)
 {
-	struct ani_mux *priv = dev_get_drvdata(indio_dev->dev.parent);
+	struct ani_mux *priv = iio_priv(indio_dev);
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
@@ -60,12 +60,14 @@ static const struct iio_chan_spec ani_mux_iio_channels[] = {
 		.type = IIO_VOLTAGE,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
+		.extend_name = "mux0",
 	},
 	{
 		.channel = 1,
 		.type = IIO_VOLTAGE,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
+		.extend_name = "mux1",
 	},
 };
 
@@ -80,9 +82,10 @@ static int ani_mux_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int r = 0;
 
-	priv = devm_kzalloc(dev, sizeof(struct ani_mux), GFP_KERNEL);
-	if (!priv)
+	indio_dev = devm_iio_device_alloc(dev, sizeof(struct ani_mux));
+	if (!indio_dev)
 		return -ENOMEM;
+	priv = iio_priv(indio_dev);
 
 	priv->gpiod = devm_gpiod_get(dev, "mux", GPIOD_OUT_LOW);
 	if (IS_ERR(priv->gpiod))
@@ -97,10 +100,6 @@ static int ani_mux_probe(struct platform_device *pdev)
 	/* Set if provided */
 	device_property_read_u32(dev, "settle-time-us", &priv->delay_us);
 	dev_dbg(dev, "settle-time-us: %u\n", priv->delay_us);
-
-	indio_dev = devm_iio_device_alloc(dev, 0);
-	if (!indio_dev)
-		return -ENOMEM;
 
 	indio_dev->name = dev_name(dev);
 	indio_dev->info = &ani_mux_iio_info;
